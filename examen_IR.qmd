@@ -220,9 +220,7 @@ resultado_bonferroni <- pairwise.t.test(BD_iso$Peso_grs,
 BD_iso$grupo, p.adjust.method = "bonferroni")
 print(resultado_bonferroni)
 
-##### Test de comparaciones múltiples de Tukey-Kramer
-resultado_tukey_kramer <- TukeyHSD(anova_grupo, alpha = 0.05)
-print(resultado_tukey_kramer)
+
 ```
 
 ### 3. Análisis Isotópico (N, C, S) en el músculo del camarón

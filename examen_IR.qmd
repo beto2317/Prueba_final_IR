@@ -1,0 +1,282 @@
+---
+title: "Estado del Camarón de río en cuencas de Arica y Parinacota"
+author: "Hernán Padilla Esparza"
+date: today
+format: pdf
+editor: visual
+---
+
+[![](logo_ifop.png){fig-align="center" width="218"}](www.ifop.cl)
+
+## Sección 1. Introducción
+
+::: justify
+*Cryphiops caementarius* (Molina, 1972), comúnmente conocido en Chile como Camarón de río del norte, ha sido ampliamente descrito en la literatura como una especie anfídroma, ya que los camarones adultos se aparean en ríos y arroyos de agua dulce, pero sus larvas se desarrollan en ambientes estuarinos salobres o en aguas marinas (Hartmann, 1958; Viacava *et al.,*1978; Dennenmoser *et al.,* 2010).
+
+La anfidromía de los camarones es ecológicamente importante, ya que, durante estos movimientos geoespaciales pasan a formar parte de diferentes ecosistemas (fluvial, estuarino y costero) en diferentes periodos del año, afectando el hábitat, la productividad y las relaciones tróficas (Benstead, 2000; Bauer, 2013). Si bien estos movimientos fuera del rango de origen contribuyen en el potencial de dispersión de la especie y al intercambio genético entre diferentes unidades poblacionales (Dennenmoser *et al.,* 2010), también pueden representar un riesgo para los camarones que migran (Benstead *et al.,* 2000). Las actuales condiciones de estrés hídrico y fragmentación que afectan a las cuencas de la región de Arica y Parinacota, surge la necesidad de identificar los patrones de migración de *C. caementarius* a traves de isotopos estables (C, N y S) contenidos en su tejido muscular, considerando que este proceso podría jugar un papel crítico en la persistencia de sus poblaciones en la zona y en el manejo de la especie.
+:::
+
+```{r}
+#| label: load-packages
+#| include: false
+library(nicheROVER)
+library(vegan)
+library(ggplot2)
+library(gridExtra)
+library(ggplot2)
+library(dplyr)
+library(effectsize)
+library(maptools)
+library(lattice)
+library(permute)
+library(rmarkdown)
+library(sp)
+library(tidyverse)
+```
+
+## Sección 2. Análisis base de datos
+
+### 1. Base de datos
+
+```{r}
+BD_iso<-read.csv("BD_Isotopos_huella.csv",header = TRUE, dec=",",sep = ";")
+```
+
+### 2. Eliminamos las filas por muestreos en fecha diferente 03-11-2022
+
+```{r}
+BD_iso<-BD_iso[-c(74:82),]
+
+```
+
+### 3. Resumen y estructura de datos
+
+```{r, results='hide'}
+summary(BD_iso)
+str(BD_iso)
+names(BD_iso)
+class(BD_iso$fecha)
+```
+
+### 4. Dividimos la variable Long.\_Cefalotorax en una nueva variable grupo con juvenil y adulto
+
+se realiza esta segregación por el efecto diferenciado que puede tener la acumulación de los isotopos en individuos adultos y juveniles
+
+```{r}
+BD_iso <- BD_iso %>%
+  mutate(grupo = ifelse(Long_Cefal_mm <= 30.00, "Juvenil", "Adulto"))
+```
+
+### 5. Dividimos la variable fecha en 2 periodos
+
+```{r}
+BD_iso<- BD_iso %>%
+  mutate(periodo = case_when(
+    Fecha == "2022-11-03" ~ "Periodo 1",
+    Fecha == "2023-01-07" ~ "Periodo 2",
+    TRUE ~ ""))
+
+```
+
+### 6. Asignamos la clase a cada una de las variables
+
+```{r}
+
+BD_iso$ID_Sample<-as.factor(BD_iso$ID_Sample)
+BD_iso$Muestra<-as.factor(BD_iso$Muestra)
+BD_iso$Estacion<-as.factor(BD_iso$Estacion)
+BD_iso$E..Reprod.<-as.factor(BD_iso$E..Reprod.)
+BD_iso$SEXO<-as.factor(BD_iso$SEXO)
+BD_iso$X.S<-as.numeric(BD_iso$X.S)
+BD_iso$Peso_grs<-as.numeric(BD_iso$Peso_grs)
+BD_iso$Mass_mg<-as.numeric(BD_iso$Mass_mg)
+BD_iso$periodo<-as.factor(BD_iso$periodo) 
+BD_iso$grupo<-as.factor(BD_iso$grupo)
+
+```
+
+### 7. Calcular condición corporal de los ejemplares a tráves del indice de masa escalado (SMI)
+
+```{r}
+ # datos de longitud corporal
+longitud <- na.omit(BD_iso$Long_Cefal_mm)
+# y masa corporal
+masa <- BD_iso$Peso_grs            
+# Calcular el SMA
+SMA <- (longitud - mean(longitud)) / sd(longitud)  
+bSMA <- as.numeric(exp(SMA)) #Calcular bSMA
+# Agregar la columna SMII a BD_iso
+BD_iso$SMII <- masa/bSMA 
+```
+
+### 8. Localidades de estudio y su orden para graficarlas
+
+```{r}
+# Definir el orden deseado de las localidades
+orden_localidades <- c("Cuya", "Conanoxa", "Huancarane")
+# Convertir la variable localidad a factor con el orden deseado
+BD_iso$Estacion <- factor(BD_iso$Estacion, levels = orden_localidades)
+
+```
+
+### 9. Cambio variable SEXO de númerica a texto
+
+```{r, results='hide'}
+BD_iso$SEXO <- factor(BD_iso$SEXO, levels = c(1, 2,3), 
+labels = c("Macho", "Hembra", "Indeter"))
+levels(BD_iso$SEXO)
+class(BD_iso$Estacion) 
+levels(BD_iso$Estacion) 
+class(BD_iso$SEXO) 
+levels(BD_iso$SEXO)
+names(BD_iso)
+str(BD_iso) 
+summary(BD_iso) 
+ # Filtramos solo las variables numéricas
+var_num<-BD_iso[c(8:19)]
+# par(mar = c(5, 4, 4, 2) + 0.1)Ajusta margenes del gráfico
+str(var_num)
+ 
+```
+
+## Sección 3. Resultados
+
+### 1. Gráficos exploratorios
+
+```{r, results='hide'}
+datos.cuya=BD_iso[BD_iso$Estacion=="Cuya",]
+datos.Huancarane=BD_iso[BD_iso$Estacion=="Huancarane",]
+datos.Conanoxa=BD_iso[BD_iso$Estacion=="Conanoxa",]
+datos.Conanoxa=BD_iso[BD_iso$Estacion=="Conanoxa",(8:18)]
+plot(datos.cuya$Peso_grs,datos.cuya$Long_Total)
+plot(datos.Huancarane$Peso_grs,datos.Huancarane$Long_Total)
+plot(datos.Conanoxa$Peso_grs,datos.Conanoxa$Long_Total)
+names(datos.cuya)
+mean(datos.cuya$Peso_grs)
+mean(datos.Huancarane$Peso_gr)
+mean(datos.Conanoxa$Peso_gr)
+## Filtramos por grupo
+datos.juvenil=BD_iso[BD_iso$grupo=="Juvenil",]  
+datos.adulto=BD_iso[BD_iso$grupo=="Adulto",]
+### REVISAR GRAFICOS
+plot(BD_iso$Long_Total,BD_iso$Peso_grs)    
+plot(BD_iso$X15N,BD_iso$Peso_grs)
+plot(BD_iso$X13C,BD_iso$Peso_grs)
+plot(BD_iso$X34S,BD_iso$Peso_grs)
+plot(BD_iso$X.N,BD_iso$Peso_grs)
+plot(BD_iso$X.C,BD_iso$Peso_grs)
+plot(BD_iso$C.N,BD_iso$Peso_grs)
+plot(BD_iso$X15N,BD_iso$SMII)
+plot(BD_iso$SMII,BD_iso$BD_iso$X13C)
+plot(BD_iso$SMII,BD_iso$BD_iso$X34S)
+plot(BD_iso$X34S,BD_iso$SMII)
+plot(datos.cuya$X15N,datos.cuya$Peso_grs)
+plot(datos.Huancarane$X15N,datos.Huancarane$Peso_grs)
+plot(datos.Conanoxa$X15N,datos.Conanoxa$Peso_grs)
+```
+
+::: justify
+La variable peso presento gradientes a lo largo de la cuenca. Los camarones localizados en estaciones más costeras presentaron magnitudes menores en peso que los que se localizaron hacia el sector precordillerano, etc etc.
+:::
+
+```{r}
+ ## Filtramos por grupo
+datos.juvenil=BD_iso[BD_iso$grupo=="Juvenil",] 
+datos.adulto=BD_iso[BD_iso$grupo=="Adulto",]
+```
+
+### 2. Boxplot y anovas
+
+```{r, fig.width=6, fig.height= 4}
+boxplot(BD_iso$SMII ~ BD_iso$Estacion, data = BD_iso) # SMII por estacion
+boxplot(BD_iso$Peso_grs ~ BD_iso$SEXO, data = BD_iso) # Hacemos un boxplot por sexo
+
+anova_sexo<-aov(BD_iso$Peso_grs~BD_iso$SEXO,data=BD_iso) # Realizamos un ANOVA
+summary(anova_sexo)  
+boxplot(BD_iso$Peso_grs ~ BD_iso$grupo, data = BD_iso) # Hacemos un boxplot
+# "Peso_grs" numerica con los niveles de la variable categorica "grupo"
+anova_grupo<-aov(BD_iso$Peso_grs~BD_iso$grupo,data=BD_iso) # Comparamos sus medias
+
+# H0: Las medias son iguales entre juveniles y adultos 
+# H1: Las media son distintas distinta
+summary(anova_grupo)   
+# Como el p-valor es <  0.05 rechazamos la 
+# hipotesis nula Ho y aceptamos la alternativa H1, o sea, las medias de juveniles
+# y adultos son diferentes.
+```
+
+::: justify
+Al comparar la variable numerica Peso con la variable categorica grupo, la ANOVA indica que el p-valor es menos a 0.05 se rechaza hipotesis nula H0 y se acepta la alternativa H1, Lo que implica que hay diferencias significativas en la medias de los ejemplares por sexo.
+:::
+
+```{r}
+##### Test de tukey
+resultado_tukey <- TukeyHSD(anova_grupo)
+summary(resultado_tukey)
+
+##### Test de Bonferroni
+resultado_bonferroni <- pairwise.t.test(BD_iso$Peso_grs,
+BD_iso$grupo, p.adjust.method = "bonferroni")
+print(resultado_bonferroni)
+
+##### Test de comparaciones múltiples de Tukey-Kramer
+resultado_tukey_kramer <- TukeyHSD(anova_grupo, alpha = 0.05)
+print(resultado_tukey_kramer)
+```
+
+### 3. Análisis Isotópico (N, C, S) en el músculo del camarón
+
+```{r, fig.width=6, fig.height= 4}
+## X15N
+boxplot(BD_iso$X15N ~ BD_iso$Estacion, data = BD_iso)
+
+stripchart(BD_iso$X15N ~ BD_iso$Estacion, vertical = TRUE, method = "jitter",
+ pch = 20, add = TRUE, col = 1:length(levels(BD_iso$Estacion)))
+
+anova_X15N_estación<-aov(BD_iso$X15N~BD_iso$Estacion,data=BD_iso)
+summary(anova_X15N_estación)
+##### Test de comparaciones múltiples de Tukey-Kramer
+resultado_tukey_kramer <- TukeyHSD(anova_X15N_estación, alpha = 0.05)
+print(resultado_tukey_kramer)
+summary(BD_iso$X15N)
+
+# X13C
+boxplot(BD_iso$X13C ~ BD_iso$Estacion, data = BD_iso)
+stripchart(BD_iso$X13C ~ BD_iso$Estacion, 
+vertical = TRUE, method = "jitter", pch = 20, add = TRUE, col = 1:length(levels(BD_iso$Estacion)))
+
+anova_X13C_estación<-aov(BD_iso$X13C~BD_iso$Estacion,data=BD_iso)
+summary(anova_X13C_estación)
+resultado_tukey_kramer <- TukeyHSD(anova_X13C_estación, alpha = 0.05)
+print(resultado_tukey_kramer)
+
+# X34S
+boxplot(BD_iso$X34S ~ BD_iso$Estacion, data = BD_iso)
+
+stripchart(BD_iso$X34S ~ BD_iso$Estacion, vertical = TRUE,
+method = "jitter", pch = 20, add = TRUE, col = 1:length(levels(BD_iso$Estacion)))
+
+anova_X34S_estación<-aov(BD_iso$X34S~BD_iso$Estacion,data=BD_iso)
+summary(anova_X34S_estación)
+resultado_tukey_kramer <- TukeyHSD(anova_X34S_estación, alpha = 0.05)
+print(resultado_tukey_kramer)
+
+summary(BD_iso$X34S)
+length(BD_iso$X34S)
+
+#  C.N
+boxplot(BD_iso$C.N ~ BD_iso$Estacion, data = BD_iso)
+
+stripchart(BD_iso$C.N ~ BD_iso$Estacion, vertical = TRUE, method = "jitter", pch = 20, add = TRUE,
+           col = 1:length(levels(BD_iso$Estacion)))
+anova_C.N_estación<-aov(BD_iso$C.N~BD_iso$Estacion,data=BD_iso)
+summary(anova_C.N_estación)
+resultado_tukey_kramer <- TukeyHSD(anova_C.N_estación, alpha = 0.05)
+print(resultado_tukey_kramer)
+```
+
+::: justify
+Al comparar por grupo las proporcion isotopica de 15N no se registran diferencias significativas entre los camarones que habitan en las 2 estaciones costeras de Cuya y Conanoxa. de igual forma no se reistran diferencias para el mismo isotopo en las estaciones de Taltape bajo y Huancarane. Al comparar las diferencias entre los isotopos 15N entre estaciones de la parte alta de la cuenca con los de la zona baja de la cuenca se registra diferencias significativas, con tejidos ms enriquecidos en los camarones que habitan en la parte alta de la cuenca en comparación a los que habitan en la parte baja de la cuenca.
+:::
+
+![](foto_camaron.png){fig-align="center" width="290" height="328"}

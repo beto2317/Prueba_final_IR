@@ -265,15 +265,6 @@ print(resultado_tukey_kramer)
 summary(BD_iso$X34S)
 length(BD_iso$X34S)
 
-#  C.N
-boxplot(BD_iso$C.N ~ BD_iso$Estacion, data = BD_iso)
-
-stripchart(BD_iso$C.N ~ BD_iso$Estacion, vertical = TRUE, method = "jitter", pch = 20, add = TRUE,
-           col = 1:length(levels(BD_iso$Estacion)))
-anova_C.N_estación<-aov(BD_iso$C.N~BD_iso$Estacion,data=BD_iso)
-summary(anova_C.N_estación)
-resultado_tukey_kramer <- TukeyHSD(anova_C.N_estación, alpha = 0.05)
-print(resultado_tukey_kramer)
 ```
 
 ::: justify

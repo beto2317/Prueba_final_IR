@@ -21,7 +21,6 @@ Las actuales condiciones de estrés hídrico y fragmentación que afectan a las 
 ```{r}
 #| label: load-packages
 #| include: false
-library(nicheROVER)
 library(vegan)
 library(ggplot2)
 library(gridExtra)
